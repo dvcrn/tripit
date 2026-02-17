@@ -30,6 +30,7 @@ tripit --help
 ### Using through agent skills
 
 - Either add `dvcrn/skills` or `dvcrn/tripit` as skill repository which should discover the `tripit` skill
+- - You can also do a `npx skills add dvcrn/skills` or `npx skills add dvcrn/tripit`
 
 ### Common Workflow
 
