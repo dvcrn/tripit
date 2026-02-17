@@ -1,0 +1,16 @@
+[tools]
+biome = "2.3.11"
+
+[tasks.format]
+run = "biome check --write ."
+description = "Format code with Biome"
+
+[tasks.lint]
+run = "bunx tsc --noEmit"
+depends = ["format"]
+description = "Type-check without emitting"
+
+[tasks.build]
+run = "bunx tsc"
+depends = ["format"]
+description = "Build with TypeScript compiler"
