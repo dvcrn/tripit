@@ -1,9 +1,9 @@
 ---
-name: tripit-cli
+name: tripit
 description: Operate and validate the TripIt CLI for trip and itinerary workflows. Use this skill when users ask to authenticate with TripIt, run `tripit` CLI commands, create/list/get/update/delete trips and child items (hotels, flights, transport, activities), or execute end-to-end validation flows based on README.md and AI_TEST_HARNESS.md.
 ---
 
-# TripIt CLI Skill
+# TripIt Skill
 
 ## Overview
 
@@ -29,21 +29,28 @@ fnox run -- bun index.ts --help
 ## Workflow
 
 1. Confirm CLI availability:
+
 ```bash
 tripit --help
 ```
+
 2. Authenticate:
+
 ```bash
 tripit login
 ```
+
 3. Run the CRUD flow:
+
 - Create trip
 - List and get trip
 - Create child resources (hotel, flight, transport, activity)
 - Attach and remove documents on child resources
 - Update trip and child resources
 - Delete child resources, then delete trip
+
 4. Verify command coverage:
+
 - Run `--help` on root and key subcommands
 - Compare supported commands to the harness checklist in `AI_TEST_HARNESS.md`
 - Call out missing tests and suggest additions
@@ -86,11 +93,13 @@ tripit activities delete <ACTIVITY_UUID>
 ```
 
 For harness-style examples that run against `index.ts` via `fnox`, read:
+
 - `references/ai-test-harness-examples.md`
 
 ## Output Expectations
 
 When executing a validation task, report:
+
 - Commands run
 - IDs created (`TRIP_UUID` and child UUIDs)
 - Verification result after each update/delete
