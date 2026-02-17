@@ -72,7 +72,19 @@ tripit transport update <TRANSPORT_UUID> --name "Updated Transport"
 tripit activities update <ACTIVITY_UUID> --name "Updated Activity"
 ```
 
-6. Delete resources:
+6. Attach and remove documents (images/PDFs):
+
+```bash
+tripit documents attach <HOTEL_UUID> --file ./confirmation.pdf --caption "Booking Confirmation"
+tripit documents attach <HOTEL_UUID> --file ./photo.png --type lodging
+tripit documents remove <HOTEL_UUID> --caption "Booking Confirmation"
+tripit documents remove <HOTEL_UUID> --index 1
+tripit documents remove <HOTEL_UUID> --all
+```
+
+The `--type` flag (lodging, activity, air, transport) is auto-detected from the UUID when omitted.
+
+7. Delete resources:
 
 ```bash
 tripit activities delete <ACTIVITY_UUID>

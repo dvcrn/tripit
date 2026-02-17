@@ -40,6 +40,7 @@ tripit login
 - Create trip
 - List and get trip
 - Create child resources (hotel, flight, transport, activity)
+- Attach and remove documents on child resources
 - Update trip and child resources
 - Delete child resources, then delete trip
 4. Verify command coverage:
@@ -72,6 +73,12 @@ tripit hotels delete <HOTEL_UUID>
 # Add and delete a flight
 tripit flights create --trip <TRIP_UUID> --name "Outbound Flight" --airline "Example Air" --from "San Francisco" --from-code US --to "Lisbon" --to-code PT --airline-code EA --flight-num 456 --depart-date 2026-05-10 --depart-time 08:30 --depart-tz UTC --arrive-date 2026-05-10 --arrive-time 17:00 --arrive-tz UTC -o json
 tripit flights delete <FLIGHT_UUID>
+
+# Attach and remove documents
+tripit documents attach <HOTEL_UUID> --file ./confirmation.pdf --caption "Booking Confirmation"
+tripit documents attach <ACTIVITY_UUID> --file ./ticket.png
+tripit documents remove <HOTEL_UUID> --caption "Booking Confirmation"
+tripit documents remove <HOTEL_UUID> --all
 
 # Add and delete an activity
 tripit activities create --trip <TRIP_UUID> --name "City Walk" --start-date 2026-05-11 --start-time 10:00 --end-date 2026-05-11 --end-time 12:00 --timezone UTC --address "100 Main St" --location-name "Old Town" -o json

@@ -412,6 +412,60 @@ hotels
 		});
 	});
 
+hotels
+	.command("remove-document")
+	.description("Remove a document from a hotel reservation")
+	.argument("<id>", "Hotel ID or UUID")
+	.option("--uuid <uuid>", "Attachment UUID to remove")
+	.option("--image-uuid <uuid>", "Deprecated alias for --uuid")
+	.option("--url <url>", "Document URL to remove")
+	.option("--caption <caption>", "Remove first document with matching caption")
+	.option("--index <number>", "1-based document index to remove")
+	.option("--all", "Remove all documents", false)
+	.option("-o, --output <format>", "Output format (text or json)", "text")
+	.action(async (id, options) => {
+		const uuid = options.uuid ?? options.imageUuid;
+		const selectorCount = [
+			Boolean(uuid),
+			Boolean(options.url),
+			Boolean(options.caption),
+			options.index !== undefined,
+			Boolean(options.all),
+		].filter(Boolean).length;
+		if (selectorCount !== 1) {
+			throw new Error(
+				"Provide exactly one selector: --uuid, --url, --caption, --index, or --all",
+			);
+		}
+
+		const client = createClient();
+		await client.authenticate();
+		const parsedIndex =
+			options.index !== undefined
+				? Number.parseInt(options.index, 10)
+				: undefined;
+		if (
+			parsedIndex !== undefined &&
+			(!Number.isFinite(parsedIndex) || parsedIndex < 1)
+		) {
+			throw new Error("--index must be a positive integer");
+		}
+		const result = await client.removeDocument({
+			objectType: "lodging",
+			objectId: id,
+			imageUuid: uuid,
+			imageUrl: options.url,
+			caption: options.caption,
+			index: parsedIndex,
+			removeAll: options.all,
+		});
+		output(result, options.output, (data) => {
+			const h = data.LodgingObject;
+			const images = normalizeArray(h.Image);
+			return `Removed document(s) from hotel: ${h.display_name || h.supplier_name}\nUUID: ${h.uuid}\nRemaining documents: ${images.length}`;
+		});
+	});
+
 program.addCommand(hotels);
 
 // === Flights ===
@@ -839,5 +893,132 @@ activities
 	});
 
 program.addCommand(activities);
+
+// === Documents ===
+
+const documents = configureHelpOnError(
+	new Command("documents").description("Manage document attachments"),
+);
+
+const validTypes = ["lodging", "activity", "air", "transport"] as const;
+
+documents
+	.command("attach")
+	.description("Attach a document to a trip object")
+	.argument("<id>", "UUID of the object to attach to")
+	.option(
+		"--type <type>",
+		"Object type (lodging, activity, air, transport) — auto-detected if omitted",
+	)
+	.requiredOption("--file <path>", "Path to file")
+	.option("--caption <name>", "Document caption (defaults to filename)")
+	.option("--mime-type <type>", "Override MIME type (auto-detected from file)")
+	.option("-o, --output <format>", "Output format (text or json)", "text")
+	.action(async (id, options) => {
+		if (options.type && !validTypes.includes(options.type)) {
+			console.error(
+				`Invalid type "${options.type}". Must be one of: ${validTypes.join(", ")}`,
+			);
+			process.exit(1);
+		}
+		const client = createClient();
+		await client.authenticate();
+		const result = await client.attachDocument({
+			objectType: options.type,
+			objectId: id,
+			filePath: options.file,
+			caption: options.caption,
+			mimeType: options.mimeType,
+		});
+		const keyToType: Record<string, string> = {
+			LodgingObject: "lodging",
+			ActivityObject: "activity",
+			AirObject: "air",
+			TransportObject: "transport",
+		};
+		output(result, options.output, (data) => {
+			const objKey = Object.keys(keyToType).find(
+				(k) => data[k as keyof typeof data],
+			);
+			const detectedType = objKey
+				? keyToType[objKey]
+				: options.type || "object";
+			const obj = objKey ? data[objKey as keyof typeof data] : undefined;
+			const name =
+				(obj as Record<string, string>)?.display_name ||
+				(obj as Record<string, string>)?.supplier_name ||
+				detectedType;
+			return `Attached document to ${detectedType}: ${name}\nUUID: ${(obj as Record<string, string>)?.uuid || id}`;
+		});
+	});
+
+documents
+	.command("remove")
+	.description("Remove a document from a trip object")
+	.argument("<id>", "UUID of the object to remove the document from")
+	.option(
+		"--type <type>",
+		"Object type (lodging, activity, air, transport) — auto-detected if omitted",
+	)
+	.option("--image-uuid <uuid>", "UUID of the image to remove")
+	.option("--image-url <url>", "URL of the image to remove")
+	.option("--caption <caption>", "Caption of the image to remove")
+	.option("--index <index>", "1-based index of the image to remove")
+	.option("--all", "Remove all documents")
+	.option("-o, --output <format>", "Output format (text or json)", "text")
+	.action(async (id, options) => {
+		if (options.type && !validTypes.includes(options.type)) {
+			console.error(
+				`Invalid type "${options.type}". Must be one of: ${validTypes.join(", ")}`,
+			);
+			process.exit(1);
+		}
+		const selectors = [
+			options.imageUuid,
+			options.imageUrl,
+			options.caption,
+			options.index,
+			options.all,
+		].filter(Boolean).length;
+		if (selectors !== 1) {
+			console.error(
+				"Provide exactly one selector: --image-uuid, --image-url, --caption, --index, or --all",
+			);
+			process.exit(1);
+		}
+		const client = createClient();
+		await client.authenticate();
+		const result = await client.removeDocument({
+			objectType: options.type,
+			objectId: id,
+			imageUuid: options.imageUuid,
+			imageUrl: options.imageUrl,
+			caption: options.caption,
+			index: options.index ? Number.parseInt(options.index, 10) : undefined,
+			removeAll: options.all,
+		});
+		const keyToType: Record<string, string> = {
+			LodgingObject: "lodging",
+			ActivityObject: "activity",
+			AirObject: "air",
+			TransportObject: "transport",
+		};
+		output(result, options.output, (data) => {
+			const objKey = Object.keys(keyToType).find(
+				(k) => data[k as keyof typeof data],
+			);
+			const detectedType = objKey
+				? keyToType[objKey]
+				: options.type || "object";
+			const obj = objKey ? data[objKey as keyof typeof data] : undefined;
+			const name =
+				(obj as Record<string, string>)?.display_name ||
+				(obj as Record<string, string>)?.supplier_name ||
+				detectedType;
+			return `Removed document from ${detectedType}: ${name}\nUUID: ${(obj as Record<string, string>)?.uuid || id}`;
+		});
+	});
+
+program.addCommand(documents);
 
 program.parse();

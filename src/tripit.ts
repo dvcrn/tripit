@@ -268,8 +268,29 @@ export class TripIt {
 		return Array.isArray(images) ? images.map(mapImage) : mapImage(images);
 	}
 
+	async detectObjectType(
+		id: string,
+	): Promise<"lodging" | "activity" | "air" | "transport"> {
+		const types = ["lodging", "activity", "air", "transport"] as const;
+		const getters: Record<string, (id: string) => Promise<unknown>> = {
+			lodging: (id) => this.getHotel(id),
+			activity: (id) => this.getActivity(id),
+			air: (id) => this.getFlight(id),
+			transport: (id) => this.getTransport(id),
+		};
+		for (const type of types) {
+			try {
+				await getters[type]!(id);
+				return type;
+			} catch {}
+		}
+		throw new Error(
+			`Could not find object with identifier ${id} as any supported type`,
+		);
+	}
+
 	async attachDocument(params: {
-		objectType: "lodging" | "activity" | "air" | "transport";
+		objectType?: "lodging" | "activity" | "air" | "transport";
 		objectId: string;
 		filePath: string;
 		caption?: string;
@@ -277,13 +298,16 @@ export class TripIt {
 	}): Promise<
 		LodgingResponse | ActivityResponse | AirResponse | TransportResponse
 	> {
+		const objectType =
+			params.objectType || (await this.detectObjectType(params.objectId));
+
 		const newImage = await this.buildImageAttachment({
 			filePath: params.filePath,
 			caption: params.caption,
 			mimeType: params.mimeType,
 		});
 
-		if (params.objectType === "lodging") {
+		if (objectType === "lodging") {
 			const existingHotelResponse = await this.getHotel(params.objectId);
 			const existingHotel = existingHotelResponse.LodgingObject;
 			if (!existingHotel?.uuid) {
@@ -296,7 +320,7 @@ export class TripIt {
 			});
 		}
 
-		if (params.objectType === "activity") {
+		if (objectType === "activity") {
 			const existingActivityResponse = await this.getActivity(params.objectId);
 			const existingActivity = existingActivityResponse.ActivityObject;
 			if (!existingActivity?.uuid) {
@@ -311,7 +335,7 @@ export class TripIt {
 			});
 		}
 
-		if (params.objectType === "air") {
+		if (objectType === "air") {
 			const existingFlightResponse = await this.getFlight(params.objectId);
 			const existingFlight = existingFlightResponse.AirObject;
 			if (!existingFlight?.uuid) {
@@ -350,6 +374,162 @@ export class TripIt {
 			uuid: existingTransport.uuid,
 			Image: imageField,
 		});
+	}
+
+	async removeDocument(params: {
+		objectType?: "lodging" | "activity" | "air" | "transport";
+		objectId: string;
+		imageUuid?: string;
+		imageUrl?: string;
+		caption?: string;
+		index?: number;
+		removeAll?: boolean;
+	}): Promise<
+		LodgingResponse | ActivityResponse | AirResponse | TransportResponse
+	> {
+		const objectType =
+			params.objectType || (await this.detectObjectType(params.objectId));
+
+		const selectors = [
+			Boolean(params.imageUuid),
+			Boolean(params.imageUrl),
+			Boolean(params.caption),
+			params.index !== undefined,
+			Boolean(params.removeAll),
+		].filter(Boolean).length;
+		if (selectors !== 1) {
+			throw new Error(
+				"Provide exactly one selector: imageUuid, imageUrl, caption, index, or removeAll",
+			);
+		}
+
+		const selectRemainingImages = (
+			currentImages: OneOrMany<TripImage> | undefined,
+		): TripImage[] => {
+			const images = normalizeArray(currentImages) as TripImage[];
+			if (images.length === 0) {
+				throw new Error(
+					`No documents found on ${objectType} ${params.objectId}`,
+				);
+			}
+
+			if (params.removeAll) {
+				return [];
+			}
+
+			if (params.imageUuid) {
+				const remaining = images.filter(
+					(image) => image.uuid !== params.imageUuid,
+				);
+				if (remaining.length === images.length) {
+					throw new Error(
+						`No document found with UUID ${params.imageUuid} on ${objectType} ${params.objectId}`,
+					);
+				}
+				return remaining;
+			}
+
+			if (params.imageUrl) {
+				const remaining = images.filter(
+					(image) => image.url !== params.imageUrl,
+				);
+				if (remaining.length === images.length) {
+					throw new Error(
+						`No document found with URL ${params.imageUrl} on ${objectType} ${params.objectId}`,
+					);
+				}
+				return remaining;
+			}
+
+			if (params.caption) {
+				const removeIndex = images.findIndex(
+					(image) => image.caption === params.caption,
+				);
+				if (removeIndex < 0) {
+					throw new Error(
+						`No document found with caption '${params.caption}' on ${objectType} ${params.objectId}`,
+					);
+				}
+				return images.filter((_, index) => index !== removeIndex);
+			}
+
+			const index = (params.index ?? 1) - 1;
+			if (index < 0 || index >= images.length) {
+				throw new Error(
+					`Document index out of range. Expected 1-${images.length}, got ${params.index}`,
+				);
+			}
+			return images.filter((_, i) => i !== index);
+		};
+
+		const toImageField = (
+			remainingImages: TripImage[],
+		): OneOrMany<TripImage> | undefined => {
+			if (remainingImages.length === 0) return undefined;
+			return remainingImages.length === 1
+				? remainingImages[0]
+				: remainingImages;
+		};
+
+		if (objectType === "lodging") {
+			const existingHotelResponse = await this.getHotel(params.objectId);
+			const existingHotel = existingHotelResponse.LodgingObject;
+			if (!existingHotel?.uuid) {
+				throw new Error(`Hotel with identifier ${params.objectId} not found`);
+			}
+			const remainingImages = selectRemainingImages(existingHotel.Image);
+			const imageField = toImageField(remainingImages);
+			return this.updateHotel(
+				imageField
+					? { uuid: existingHotel.uuid, Image: imageField }
+					: { uuid: existingHotel.uuid },
+			);
+		}
+
+		if (objectType === "activity") {
+			const existingActivityResponse = await this.getActivity(params.objectId);
+			const existingActivity = existingActivityResponse.ActivityObject;
+			if (!existingActivity?.uuid) {
+				throw new Error(
+					`Activity with identifier ${params.objectId} not found`,
+				);
+			}
+			const remainingImages = selectRemainingImages(existingActivity.Image);
+			const imageField = toImageField(remainingImages);
+			return this.updateActivity(
+				imageField
+					? { uuid: existingActivity.uuid, Image: imageField }
+					: { uuid: existingActivity.uuid },
+			);
+		}
+
+		if (objectType === "air") {
+			const existingFlightResponse = await this.getFlight(params.objectId);
+			const existingFlight = existingFlightResponse.AirObject;
+			if (!existingFlight?.uuid) {
+				throw new Error(`Flight with identifier ${params.objectId} not found`);
+			}
+			const remainingImages = selectRemainingImages(existingFlight.Image);
+			const imageField = toImageField(remainingImages);
+			return this.updateFlight(
+				imageField
+					? { uuid: existingFlight.uuid, Image: imageField }
+					: { uuid: existingFlight.uuid },
+			);
+		}
+
+		const existingTransportResponse = await this.getTransport(params.objectId);
+		const existingTransport = existingTransportResponse.TransportObject;
+		if (!existingTransport?.uuid) {
+			throw new Error(`Transport with identifier ${params.objectId} not found`);
+		}
+		const remainingImages = selectRemainingImages(existingTransport.Image);
+		const imageField = toImageField(remainingImages);
+		return this.updateTransport(
+			imageField
+				? { uuid: existingTransport.uuid, Image: imageField }
+				: { uuid: existingTransport.uuid },
+		);
 	}
 
 	// === Hotels (Lodging) ===
