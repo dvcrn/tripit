@@ -388,6 +388,30 @@ hotels
 		);
 	});
 
+hotels
+	.command("attach-document")
+	.description("Attach a document to a hotel reservation")
+	.argument("<id>", "Hotel ID or UUID")
+	.requiredOption("--file <path>", "Path to file")
+	.option("--name <name>", "Document name/caption")
+	.option("--mime-type <mime>", "Override MIME type")
+	.option("-o, --output <format>", "Output format (text or json)", "text")
+	.action(async (id, options) => {
+		const client = createClient();
+		await client.authenticate();
+		const result = await client.attachDocument({
+			objectType: "lodging",
+			objectId: id,
+			filePath: options.file,
+			caption: options.name,
+			mimeType: options.mimeType,
+		});
+		output(result, options.output, (data) => {
+			const h = data.LodgingObject;
+			return `Attached document to hotel: ${h.display_name || h.supplier_name}\nUUID: ${h.uuid}`;
+		});
+	});
+
 program.addCommand(hotels);
 
 // === Flights ===

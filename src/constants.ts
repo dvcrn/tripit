@@ -44,6 +44,7 @@ export const LODGING_FIELD_ORDER = [
 	"trip_id",
 	"is_client_traveler",
 	"display_name",
+	"Image",
 	"supplier_name",
 	"supplier_conf_num",
 	"booking_rate",
@@ -61,6 +62,7 @@ export const AIR_FIELD_ORDER = [
 	"trip_id",
 	"is_client_traveler",
 	"display_name",
+	"Image",
 	"supplier_name",
 	"supplier_conf_num",
 	"is_purchased",
@@ -89,6 +91,7 @@ export const TRANSPORT_FIELD_ORDER = [
 	"trip_id",
 	"is_client_traveler",
 	"display_name",
+	"Image",
 	"is_purchased",
 	"is_tripit_booking",
 	"has_possible_cancellation",
@@ -114,12 +117,19 @@ export const ACTIVITY_FIELD_ORDER = [
 	"trip_id",
 	"is_client_traveler",
 	"display_name",
+	"Image",
 	"is_purchased",
 	"notes",
 	"StartDateTime",
 	"EndDateTime",
 	"Address",
 	"location_name",
+] as const;
+
+export const IMAGE_FIELD_ORDER = [
+	"caption",
+	"segment_uuid",
+	"ImageData",
 ] as const;
 
 export const ADDRESS_FIELD_ORDER = [

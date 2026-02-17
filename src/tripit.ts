@@ -5,6 +5,7 @@ import {
 	ADDRESS_FIELD_ORDER,
 	AIR_FIELD_ORDER,
 	AIR_SEGMENT_FIELD_ORDER,
+	IMAGE_FIELD_ORDER,
 	LODGING_FIELD_ORDER,
 	TRANSPORT_FIELD_ORDER,
 	TRANSPORT_SEGMENT_FIELD_ORDER,
@@ -16,9 +17,11 @@ import type {
 	AirSegment,
 	DeleteResponse,
 	LodgingResponse,
+	OneOrMany,
 	TransportResponse,
 	TransportSegment,
 	TripGetResponse,
+	TripImage,
 	TripItConfig,
 	TripListResponse,
 	TripMutationResponse,
@@ -209,6 +212,146 @@ export class TripIt {
 		);
 	}
 
+	private async buildImageAttachment(params: {
+		filePath: string;
+		caption?: string;
+		mimeType?: string;
+	}): Promise<TripImage> {
+		const file = Bun.file(params.filePath);
+		const exists = await file.exists();
+		if (!exists) {
+			throw new Error(`File not found: ${params.filePath}`);
+		}
+
+		const buffer = await file.arrayBuffer();
+		const base64Content = Buffer.from(buffer).toString("base64");
+		const mimeType = params.mimeType || file.type || "application/octet-stream";
+		const caption =
+			params.caption || params.filePath.split("/").pop() || "document";
+
+		return orderObjectByKeys(
+			{
+				caption,
+				ImageData: {
+					content: base64Content,
+					mime_type: mimeType,
+				},
+			},
+			IMAGE_FIELD_ORDER,
+		) as unknown as TripImage;
+	}
+
+	private mergeImages(
+		existing: OneOrMany<TripImage> | undefined,
+		newImage: TripImage,
+	): OneOrMany<TripImage> {
+		const existingImages = normalizeArray(existing) as TripImage[];
+		return existingImages.length > 0 ? [...existingImages, newImage] : newImage;
+	}
+
+	private setSegmentUuidIfNeeded(
+		images: OneOrMany<TripImage>,
+		segmentUuid: string | undefined,
+	): OneOrMany<TripImage> {
+		if (!segmentUuid) return images;
+		const mapImage = (img: TripImage): TripImage => {
+			if (!img.ImageData || img.segment_uuid) return img;
+			return orderObjectByKeys(
+				{
+					...img,
+					segment_uuid: segmentUuid,
+				},
+				IMAGE_FIELD_ORDER,
+			) as unknown as TripImage;
+		};
+
+		return Array.isArray(images) ? images.map(mapImage) : mapImage(images);
+	}
+
+	async attachDocument(params: {
+		objectType: "lodging" | "activity" | "air" | "transport";
+		objectId: string;
+		filePath: string;
+		caption?: string;
+		mimeType?: string;
+	}): Promise<
+		LodgingResponse | ActivityResponse | AirResponse | TransportResponse
+	> {
+		const newImage = await this.buildImageAttachment({
+			filePath: params.filePath,
+			caption: params.caption,
+			mimeType: params.mimeType,
+		});
+
+		if (params.objectType === "lodging") {
+			const existingHotelResponse = await this.getHotel(params.objectId);
+			const existingHotel = existingHotelResponse.LodgingObject;
+			if (!existingHotel?.uuid) {
+				throw new Error(`Hotel with identifier ${params.objectId} not found`);
+			}
+
+			return this.updateHotel({
+				uuid: existingHotel.uuid,
+				Image: this.mergeImages(existingHotel.Image, newImage),
+			});
+		}
+
+		if (params.objectType === "activity") {
+			const existingActivityResponse = await this.getActivity(params.objectId);
+			const existingActivity = existingActivityResponse.ActivityObject;
+			if (!existingActivity?.uuid) {
+				throw new Error(
+					`Activity with identifier ${params.objectId} not found`,
+				);
+			}
+
+			return this.updateActivity({
+				uuid: existingActivity.uuid,
+				Image: this.mergeImages(existingActivity.Image, newImage),
+			});
+		}
+
+		if (params.objectType === "air") {
+			const existingFlightResponse = await this.getFlight(params.objectId);
+			const existingFlight = existingFlightResponse.AirObject;
+			if (!existingFlight?.uuid) {
+				throw new Error(`Flight with identifier ${params.objectId} not found`);
+			}
+
+			const segment = (
+				normalizeArray(existingFlight.Segment) as AirSegment[]
+			)[0];
+			const imageField = this.setSegmentUuidIfNeeded(
+				this.mergeImages(existingFlight.Image, newImage),
+				segment?.uuid,
+			);
+
+			return this.updateFlight({
+				uuid: existingFlight.uuid,
+				Image: imageField,
+			});
+		}
+
+		const existingTransportResponse = await this.getTransport(params.objectId);
+		const existingTransport = existingTransportResponse.TransportObject;
+		if (!existingTransport?.uuid) {
+			throw new Error(`Transport with identifier ${params.objectId} not found`);
+		}
+
+		const segment = (
+			normalizeArray(existingTransport.Segment) as TransportSegment[]
+		)[0];
+		const imageField = this.setSegmentUuidIfNeeded(
+			this.mergeImages(existingTransport.Image, newImage),
+			segment?.uuid,
+		);
+
+		return this.updateTransport({
+			uuid: existingTransport.uuid,
+			Image: imageField,
+		});
+	}
+
 	// === Hotels (Lodging) ===
 
 	async getHotel(id: string): Promise<LodgingResponse> {
@@ -293,6 +436,7 @@ export class TripIt {
 		bookingRate?: string;
 		notes?: string;
 		totalCost?: string;
+		Image?: OneOrMany<TripImage>;
 	}): Promise<LodgingResponse> {
 		const identifier = params.uuid || params.id;
 		if (!identifier) {
@@ -364,6 +508,19 @@ export class TripIt {
 
 		if (tripKey) {
 			lodgingObject[tripKey] = tripId;
+		}
+
+		if (params.Image) {
+			if (Array.isArray(params.Image)) {
+				lodgingObject.Image = params.Image.map((image) => {
+					if (!image.ImageData) return image;
+					return orderObjectByKeys(image, IMAGE_FIELD_ORDER);
+				});
+			} else {
+				lodgingObject.Image = params.Image.ImageData
+					? orderObjectByKeys(params.Image, IMAGE_FIELD_ORDER)
+					: params.Image;
+			}
 		}
 
 		return this.apiPost(
@@ -457,6 +614,7 @@ export class TripIt {
 		supplierConfNum?: string;
 		notes?: string;
 		totalCost?: string;
+		Image?: OneOrMany<TripImage>;
 		segment?: {
 			startDate?: string;
 			startTime?: string;
@@ -556,6 +714,32 @@ export class TripIt {
 			airObject[tripKey] = tripId;
 		}
 
+		if (params.Image) {
+			if (Array.isArray(params.Image)) {
+				airObject.Image = params.Image.map((image) => {
+					if (!image.ImageData) return image;
+					return orderObjectByKeys(
+						{
+							...image,
+							segment_uuid: image.segment_uuid ?? existingSegment.uuid,
+						},
+						IMAGE_FIELD_ORDER,
+					);
+				});
+			} else {
+				const image = params.Image;
+				airObject.Image = image.ImageData
+					? orderObjectByKeys(
+							{
+								...image,
+								segment_uuid: image.segment_uuid ?? existingSegment.uuid,
+							},
+							IMAGE_FIELD_ORDER,
+						)
+					: image;
+			}
+		}
+
 		return this.apiPost(
 			this.endpoint("v2", `replace/air/uuid/${existingFlight.uuid}`),
 			{
@@ -653,6 +837,7 @@ export class TripIt {
 		carrierName?: string;
 		confirmationNum?: string;
 		displayName?: string;
+		Image?: OneOrMany<TripImage>;
 	}): Promise<TransportResponse> {
 		const identifier = params.uuid || params.id;
 		if (!identifier) {
@@ -731,6 +916,32 @@ export class TripIt {
 
 		if (tripKey) {
 			transportObject[tripKey] = tripId;
+		}
+
+		if (params.Image) {
+			if (Array.isArray(params.Image)) {
+				transportObject.Image = params.Image.map((image) => {
+					if (!image.ImageData) return image;
+					return orderObjectByKeys(
+						{
+							...image,
+							segment_uuid: image.segment_uuid ?? existingSegment.uuid,
+						},
+						IMAGE_FIELD_ORDER,
+					);
+				});
+			} else {
+				const image = params.Image;
+				transportObject.Image = image.ImageData
+					? orderObjectByKeys(
+							{
+								...image,
+								segment_uuid: image.segment_uuid ?? existingSegment.uuid,
+							},
+							IMAGE_FIELD_ORDER,
+						)
+					: image;
+			}
 		}
 
 		return this.apiPost(
@@ -820,6 +1031,7 @@ export class TripIt {
 		zip?: string;
 		country?: string;
 		notes?: string;
+		Image?: OneOrMany<TripImage>;
 	}): Promise<ActivityResponse> {
 		const identifier = params.uuid || params.id;
 		if (!identifier) {
@@ -875,6 +1087,19 @@ export class TripIt {
 
 		if (tripKey) {
 			activityObject[tripKey] = tripId;
+		}
+
+		if (params.Image) {
+			if (Array.isArray(params.Image)) {
+				activityObject.Image = params.Image.map((image) => {
+					if (!image.ImageData) return image;
+					return orderObjectByKeys(image, IMAGE_FIELD_ORDER);
+				});
+			} else {
+				activityObject.Image = params.Image.ImageData
+					? orderObjectByKeys(params.Image, IMAGE_FIELD_ORDER)
+					: params.Image;
+			}
 		}
 
 		return this.apiPost(

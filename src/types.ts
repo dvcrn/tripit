@@ -104,6 +104,22 @@ export interface WeatherObject {
 	avg_wind_speed_kn?: string;
 }
 
+export interface ImageData {
+	content: string;
+	mime_type: string;
+}
+
+export interface TripImage {
+	caption?: string;
+	url?: string;
+	id?: string;
+	uuid?: string;
+	segment_id?: string;
+	segment_uuid?: string;
+	thumbnail_url?: string;
+	ImageData?: ImageData;
+}
+
 export interface TripListResponse extends ApiMetadata {
 	Trip: OneOrMany<TripRecord>;
 	Profile?: Record<string, unknown>;
@@ -126,6 +142,7 @@ export interface LodgingObject {
 	is_client_traveler?: string;
 	relative_url?: string;
 	display_name?: string;
+	Image?: OneOrMany<TripImage>;
 	is_display_name_auto_generated?: string;
 	last_modified?: string;
 	supplier_name?: string;
@@ -188,6 +205,7 @@ export interface AirObject {
 	is_client_traveler?: string;
 	relative_url?: string;
 	display_name?: string;
+	Image?: OneOrMany<TripImage>;
 	is_display_name_auto_generated?: string;
 	last_modified?: string;
 	supplier_name?: string;
@@ -221,6 +239,7 @@ export interface TransportObject {
 	is_client_traveler?: string;
 	relative_url?: string;
 	display_name?: string;
+	Image?: OneOrMany<TripImage>;
 	is_display_name_auto_generated?: string;
 	last_modified?: string;
 	is_purchased?: string;
@@ -237,6 +256,7 @@ export interface ActivityObject {
 	is_client_traveler?: string;
 	relative_url?: string;
 	display_name?: string;
+	Image?: OneOrMany<TripImage>;
 	is_display_name_auto_generated?: string;
 	last_modified?: string;
 	is_purchased?: string;
