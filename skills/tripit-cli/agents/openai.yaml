@@ -1,0 +1,4 @@
+interface:
+  display_name: "TripIt CLI"
+  short_description: "Use and manage TripIt trips, flights, hotels, transport, and activities."
+  default_prompt: "Install with `npm install -g tripit` first, then use the TripIt CLI to authenticate and manage trips, flights, hotels, transport, and activities with create/list/get/update/delete commands."
