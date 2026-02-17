@@ -1,8 +1,33 @@
 {
-	"name": "tripit-cli",
-	"module": "index.ts",
+	"name": "tripit",
+	"version": "0.1.0",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/dvcrn/tripit.git"
+	},
+	"bugs": {
+		"url": "https://github.com/dvcrn/tripit/issues"
+	},
+	"homepage": "https://github.com/dvcrn/tripit#readme",
 	"type": "module",
-	"private": true,
+	"main": "./src/index.ts",
+	"module": "./src/index.ts",
+	"types": "./src/types.ts",
+	"exports": {
+		".": {
+			"types": "./src/types.ts",
+			"import": "./src/index.ts",
+			"default": "./src/index.ts"
+		}
+	},
+	"bin": {
+		"tripit": "./index.ts"
+	},
+	"files": [
+		"index.ts",
+		"src"
+	],
 	"devDependencies": {
 		"@types/bun": "latest",
 		"@types/tough-cookie": "^4.0.5"
