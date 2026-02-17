@@ -27,9 +27,11 @@ Show available commands:
 tripit --help
 ```
 
-### Common Workflow
+### Using through agent skills
 
-The commands below follow the end-to-end flow in `AI_TEST_HARNESS.md`.
+- Either add `dvcrn/skills` or `dvcrn/tripit` as skill repository which should discover the `tripit` skill
+
+### Common Workflow
 
 1. Authenticate:
 
