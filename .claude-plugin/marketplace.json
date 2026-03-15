@@ -1,0 +1,23 @@
+{
+	"name": "dvcrn-tripit",
+	"owner": {
+		"name": "dvcrn"
+	},
+	"metadata": {
+		"description": "TripIt CLI plugin marketplace for trip and itinerary workflows.",
+		"version": "0.1.2",
+		"pluginRoot": "./.claude-plugin/plugins"
+	},
+	"plugins": [
+		{
+			"name": "tripit",
+			"source": "./.claude-plugin/plugins/tripit",
+			"description": "Use the TripIt CLI to authenticate and manage trips, hotels, flights, transport, activities, and documents.",
+			"version": "0.1.2",
+			"author": {
+				"name": "dvcrn"
+			},
+			"repository": "https://github.com/dvcrn/tripit"
+		}
+	]
+}

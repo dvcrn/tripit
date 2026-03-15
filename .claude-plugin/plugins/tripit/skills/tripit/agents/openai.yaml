@@ -1,0 +1,4 @@
+interface:
+  display_name: "TripIt CLI"
+  short_description: "Authenticate and manage TripIt trips and itinerary objects from the terminal."
+  default_prompt: "Use the tripit CLI to log in and manage trips, hotels, flights, transport, activities, and document attachments."

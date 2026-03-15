@@ -27,10 +27,34 @@ Show available commands:
 tripit --help
 ```
 
-### Using through agent skills
+### Agent Skill Installation
 
-- Either add `dvcrn/skills` or `dvcrn/tripit` as skill repository which should discover the `tripit` skill
-- - You can also do a `npx skills add dvcrn/skills` or `npx skills add dvcrn/tripit`
+Install with `npx skills`:
+
+```bash
+npx skills add dvcrn/tripit
+npx skills add dvcrn/tripit --full-depth --list
+```
+
+Install with Claude plugin marketplace CLI:
+
+```bash
+claude plugin marketplace add dvcrn/tripit
+claude plugin install tripit@dvcrn-tripit --scope user
+```
+
+If the marketplace is already configured, update before reinstall tests:
+
+```bash
+claude plugin marketplace update dvcrn-tripit
+claude plugin install tripit@dvcrn-tripit --scope user
+```
+
+Claude UI flow:
+
+1. Open Claude plugin marketplace UI.
+2. Add or select `dvcrn/tripit`.
+3. Install plugin `tripit` from marketplace `dvcrn-tripit`.
 
 ### Common Workflow
 

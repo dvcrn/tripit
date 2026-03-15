@@ -1,0 +1,12 @@
+{
+	"name": "tripit",
+	"version": "0.1.2",
+	"description": "Claude plugin for TripIt CLI workflows.",
+	"author": {
+		"name": "dvcrn"
+	},
+	"homepage": "https://github.com/dvcrn/tripit",
+	"repository": "https://github.com/dvcrn/tripit",
+	"license": "MIT",
+	"keywords": ["tripit", "travel", "cli"]
+}
