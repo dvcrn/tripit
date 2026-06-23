@@ -12,23 +12,60 @@ export const SCOPES = "offline_access email";
 // TripIt mobile app client ID (public, extracted from iOS/Android app)
 export const DEFAULT_CLIENT_ID = "e400234a-f684-11e7-9d05-9cb654932688";
 
-export const BROWSER_HEADERS = {
+/**
+ * Headers for the initial navigation GET request.
+ * Sec-Fetch-Site is "none" because this simulates a user typing a URL
+ * directly (not following a cross-site link).
+ */
+export const NAVIGATION_HEADERS = {
 	"User-Agent":
 		"Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:142.0) Gecko/20100101 Firefox/142.0",
 	Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-	"Accept-Language": "en-US,ja;q=0.7,en;q=0.3",
+	"Accept-Language": "en-US,en;q=0.5",
 	"Accept-Encoding": "gzip, deflate, br, zstd",
 	DNT: "1",
-	"Sec-GPC": "1",
 	Connection: "keep-alive",
 	"Upgrade-Insecure-Requests": "1",
 	"Sec-Fetch-Dest": "document",
 	"Sec-Fetch-Mode": "navigate",
-	"Sec-Fetch-Site": "cross-site",
+	"Sec-Fetch-Site": "none",
+	"Sec-Fetch-User": "?1",
 	Priority: "u=0, i",
-	Pragma: "no-cache",
-	"Cache-Control": "no-cache",
 };
+
+/**
+ * Headers for the login form POST request.
+ * Sec-Fetch-Site is "same-origin" because we're posting back to the
+ * same site that served the form.
+ */
+export const FORM_POST_HEADERS = {
+	"User-Agent":
+		"Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:142.0) Gecko/20100101 Firefox/142.0",
+	Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+	"Accept-Language": "en-US,en;q=0.5",
+	"Accept-Encoding": "gzip, deflate, br, zstd",
+	DNT: "1",
+	Connection: "keep-alive",
+	"Upgrade-Insecure-Requests": "1",
+	"Content-Type": "application/x-www-form-urlencoded",
+	"Sec-Fetch-Dest": "document",
+	"Sec-Fetch-Mode": "navigate",
+	"Sec-Fetch-Site": "same-origin",
+	"Sec-Fetch-User": "?1",
+	Priority: "u=0, i",
+};
+
+/**
+ * @deprecated Use NAVIGATION_HEADERS or FORM_POST_HEADERS instead.
+ * Kept for backward compatibility.
+ */
+export const BROWSER_HEADERS = NAVIGATION_HEADERS;
+
+/** Maximum number of retry attempts for transient auth failures (e.g. 403). */
+export const AUTH_MAX_RETRIES = 3;
+
+/** Base delay in milliseconds between auth retries (doubled each attempt). */
+export const AUTH_RETRY_BASE_DELAY_MS = 1000;
 
 export const TRIP_UPDATE_FIELD_ORDER = [
 	"primary_location",
