@@ -4,10 +4,13 @@ import * as cheerio from "cheerio";
 import fetch from "node-fetch";
 import {
 	API_BASE_URL,
+	AUTH_MAX_RETRIES,
+	AUTH_RETRY_BASE_DELAY_MS,
 	BASE_URL,
-	BROWSER_HEADERS,
 	CACHE_DIR,
 	DEFAULT_CLIENT_ID,
+	FORM_POST_HEADERS,
+	NAVIGATION_HEADERS,
 	REDIRECT_URI,
 	SCOPES,
 	TOKEN_CACHE_FILE,
@@ -45,7 +48,7 @@ async function followRedirects(
 	let currentUrl = url;
 	for (let i = 0; i < 5; i++) {
 		const res = await (fetchFn as any)(currentUrl, {
-			headers: BROWSER_HEADERS,
+			headers: NAVIGATION_HEADERS,
 			redirect: "manual",
 		});
 		const body = await res.text();
@@ -55,6 +58,14 @@ async function followRedirects(
 			if (!location) throw new Error("Redirect without location header");
 			currentUrl = new URL(location, currentUrl).href;
 			continue;
+		}
+
+		if (res.status === 403) {
+			throw new Error(
+				"Received 403 while loading login form. " +
+					"This is typically caused by bot detection (e.g. Akamai Bot Manager). " +
+					"The request may succeed on retry.",
+			);
 		}
 
 		const $ = cheerio.load(body);
@@ -95,10 +106,7 @@ async function submitLogin(
 	const res = await (fetchFn as any)(finalUrl, {
 		method: "POST",
 		headers: {
-			...BROWSER_HEADERS,
-			"Content-Type": "application/x-www-form-urlencoded",
-			"Sec-Fetch-Site": "same-origin",
-			"Sec-Fetch-User": "?1",
+			...FORM_POST_HEADERS,
 			Origin: BASE_URL,
 			Referer: formAction,
 		},
@@ -109,7 +117,11 @@ async function submitLogin(
 	const responseText = await res.text();
 
 	if (res.status === 403) {
-		throw new Error("Login failed (403)");
+		throw new Error(
+			"Login request blocked (HTTP 403). " +
+				"TripIt uses Akamai Bot Manager which may intermittently reject " +
+				"automated requests. The request may succeed on retry.",
+		);
 	}
 
 	if (res.status === 302 || res.status === 303) {
@@ -178,6 +190,38 @@ export async function authenticate(config: TripItConfig): Promise<string> {
 	if (cached && cached.expiresAt > Date.now()) {
 		return cached.access_token;
 	}
+
+	let lastError: Error | null = null;
+	for (let attempt = 0; attempt <= AUTH_MAX_RETRIES; attempt++) {
+		if (attempt > 0) {
+			const delay = AUTH_RETRY_BASE_DELAY_MS * 2 ** (attempt - 1);
+			await new Promise((resolve) => setTimeout(resolve, delay));
+		}
+
+		try {
+			const token = await attemptAuthentication(config, clientId);
+			return token;
+		} catch (err) {
+			lastError = err instanceof Error ? err : new Error(String(err));
+			// Only retry on transient failures (403, network errors)
+			const errCode = (lastError as NodeJS.ErrnoException).code;
+			const isRetryable =
+				lastError.message.includes("403") ||
+				errCode === "ECONNRESET" ||
+				errCode === "ETIMEDOUT" ||
+				lastError.message.includes("ECONNRESET") ||
+				lastError.message.includes("ETIMEDOUT");
+			if (!isRetryable) break;
+		}
+	}
+
+	throw lastError ?? new Error("Authentication failed");
+}
+
+async function attemptAuthentication(
+	config: TripItConfig,
+	clientId: string,
+): Promise<string> {
 
 	const fetchCookie = (await import("fetch-cookie")).default;
 	const { CookieJar } = await import("tough-cookie");
