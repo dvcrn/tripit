@@ -222,7 +222,6 @@ async function attemptAuthentication(
 	config: TripItConfig,
 	clientId: string,
 ): Promise<string> {
-
 	const fetchCookie = (await import("fetch-cookie")).default;
 	const { CookieJar } = await import("tough-cookie");
 	const fetchWithCookie = fetchCookie(fetch, new CookieJar());
